@@ -1,0 +1,21 @@
+{
+  "name": "doggy_nft_contracts",
+  "version": "1.0.0",
+  "description": "",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.5.0",
+    "@openzeppelin/truffle-upgrades": "^1.15.0",
+    "caver-js": "^1.8.1",
+    "dotenv": "^16.0.0",
+    "truffle-hdwallet-provider-klaytn": "^1.4.2"
+  }
+}
