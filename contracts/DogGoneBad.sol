@@ -15,7 +15,6 @@ contract DogGoneBad is ERC721A, ERC721ABurnable, ERC721AOwnersExplicit, ERC721AQ
     using SafeMath for uint256;
 
     string __baseURI;
-    uint256 _mintPrice = 1 * 10 ** 18;
 
     // all the payments earned through public minting goes here
     uint256 public deposits;
@@ -24,6 +23,20 @@ contract DogGoneBad is ERC721A, ERC721ABurnable, ERC721AOwnersExplicit, ERC721AQ
     // contract that can withdraw and use public funds
     address public publicFundHandler;
     uint8 public creatorFee = 10; // in percentage. Only creator fee goes to owner
+
+    // Minting information
+    uint256 public publicSaleCount; // total number of public sale events
+    bool public publicSaleEnabled = false;
+
+    mapping (address => uint256) private _lastCallBlockNumber;
+    uint256 private _mintIndex;
+    uint256 private _maxMintAmount;
+    uint256 private _antibotInterval;
+    uint256 private _mintLimitPerBlock;
+    uint256 private _mintLimitPerSale;
+    uint256 private _mintStartAfterDays;
+    uint256 private _mintStartTimestamp;
+    uint256 private _mintPrice = 1 * 10 ** 18;  // start from 1 KLAY
 
     event Received(address, uint);
 
@@ -42,18 +55,68 @@ contract DogGoneBad is ERC721A, ERC721ABurnable, ERC721AOwnersExplicit, ERC721AQ
         return _mintPrice;
     }
 
+    function setPublicSale(
+        uint256 maxMintAmount,
+        uint256 antibotInterval,
+        uint256 mintLimitPerBlock,
+        uint256 mintLimitPerSale,
+        uint256 mintStartAfterDays
+    ) public onlyOwner {
+        _mintIndex = 0;
+        _maxMintAmount = maxMintAmount;
+        _antibotInterval = antibotInterval;
+        _mintLimitPerBlock = mintLimitPerBlock;
+        _mintLimitPerSale = mintLimitPerSale;
+        _mintStartAfterDays = mintStartAfterDays;
+    }
+
+    function getPublicSale() public view returns (uint256[7] memory) {
+        return [
+            _maxMintAmount,
+            _antibotInterval,
+            _mintLimitPerBlock,
+            _mintLimitPerSale,
+            _mintStartAfterDays,
+            _mintStartTimestamp,
+            _mintPrice
+        ];
+    }
+
+    function openPublicSale() public onlyOwner {
+        publicSaleEnabled = true;
+        publicSaleCount++;
+        _mintStartTimestamp = block.timestamp;
+    }
+
+    function closePublicSale() public onlyOwner {
+        publicSaleEnabled = false;
+    }
+
     function setPublicFundHandler(address _contract) public onlyOwner {
         publicFundHandler = _contract;
     }
 
-    function mintTo(address to, uint256 quantity) public onlyOwner {
-        _safeMint(to, quantity);
+    function getTimeAfterSaleOpen() public view returns (uint256) {
+        require(publicSaleEnabled, "Public minting has not started yet");
+        return block.timestamp - _mintStartTimestamp;
     }
 
     function publicMint(uint256 quantity) external payable {
+        require(publicSaleEnabled, "Public minting has not started yet");
+        require(_lastCallBlockNumber[msg.sender].add(_antibotInterval) < block.number, "Too many minting requesets");
+        require(getTimeAfterSaleOpen() >= _mintStartAfterDays * 24 * 60 * 60);
+        require(quantity > 0 && quantity <= _mintLimitPerBlock, "Too many requests or zero request");
         require(msg.value == _mintPrice.mul(quantity), "Need to pay more. Check payment");
+        require(_mintIndex.add(requestedCount) <= _maxMintAmount + 1, "Exceeded max amount");
+        require(balanceOf(msg.sender) + requestedCount <= _mintLimitPerSale, "Exceeded max amount per person");
+
         deposits += msg.value;
+        _lastCallBlockNumber[msg.sender] = block.number;
         _safeMint(msg.sender, quantity);
+    }
+
+    function mintTo(address to, uint256 quantity) public onlyOwner {
+        _safeMint(to, quantity);
     }
 
     function setBaseURI(string memory uri) public onlyOwner {
@@ -62,6 +125,10 @@ contract DogGoneBad is ERC721A, ERC721ABurnable, ERC721AOwnersExplicit, ERC721AQ
 
     function _baseURI() internal view override returns (string memory) {
         return __baseURI;
+    }
+
+    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+        return super.tokenURI();
     }
 
     function withdraw() external payable onlyOwner {
