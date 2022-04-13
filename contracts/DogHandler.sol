@@ -15,8 +15,20 @@ contract DogHandler is Ownable {
         nft = DogGoneBad(_nft);
     }
 
+    function approveContract() public {
+        // check if it works
+        // possible that it doesn't work because it is a contract call
+        (bool success, bytes memory data) = address(nft).call(
+            abi.encodeWithSignature("setApprovalForAll(address,bool)", address(this), true)
+        );
+        if (!success) {
+            revert();
+        }
+    }
+
     function isApproved(address creator) public view returns (bool) {
         // NFT owner has to approve this contract first
+        // DogGoneBad.setApprovalForAll(creator, address(this))
         return nft.isApprovedForAll(creator, address(this));
     }
 
