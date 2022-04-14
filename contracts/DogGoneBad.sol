@@ -38,13 +38,24 @@ contract DogGoneBad is ERC721A, ERC721ABurnable, ERC721AOwnersExplicit, ERC721AQ
     uint256 private _mintStartTimestamp;
     uint256 private _mintPrice = 1 * 10 ** 18;  // start from 1 KLAY
 
-    event Received(address, uint);
+    // Reveal information
+    // assumes there are multiple public sales each of which hides tokenURI
+    // for a set period of time
+    bool public reveal = false;
+    string private _hiddenTokenURI;
+    uint256 private _hideFrom;
+    uint256 private _hideTo;
 
     constructor() ERC721A("TestDoggy", "TDOGG") {}
 
     modifier onlyPublicHandler() {
         require(msg.sender == publicFundHandler);
         _;
+    }
+
+    function setPublicFundHandler(address _contract) public onlyOwner {
+        // public fund handler can manage all the public fund in this contract (balance)
+        publicFundHandler = _contract;
     }
 
     function setMintPrice(uint256 price) public onlyOwner {
@@ -92,10 +103,6 @@ contract DogGoneBad is ERC721A, ERC721ABurnable, ERC721AOwnersExplicit, ERC721AQ
         publicSaleEnabled = false;
     }
 
-    function setPublicFundHandler(address _contract) public onlyOwner {
-        publicFundHandler = _contract;
-    }
-
     function getTimeAfterSaleOpen() public view returns (uint256) {
         require(publicSaleEnabled, "Public minting has not started yet");
         return block.timestamp - _mintStartTimestamp;
@@ -127,7 +134,22 @@ contract DogGoneBad is ERC721A, ERC721ABurnable, ERC721AOwnersExplicit, ERC721AQ
         return __baseURI;
     }
 
+    function hideTokens(uint256 from, uint256 to, string memory uri) public onlyOwner {
+        reveal = false;
+        _hideFrom = from;
+        _hideTo = to;
+        _hiddenTokenURI = uri;
+    }
+
+    function revealTokens() public onlyOwner {
+        reveal = true;
+    }
+
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+        if (!reveal && tokenId >= _hideFrom && tokenId <= _hideTo) {
+            return string(abi.encodePacked(_hiddenTokenURI, tokenId.toString()));
+        }
+
         return super.tokenURI();
     }
 
