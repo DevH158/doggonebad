@@ -5,6 +5,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import '@openzeppelin/contracts/utils/Strings.sol';
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts@4.5.0/utils/cryptography/MerkleProof.sol";
 
 import "erc721psi/contracts/ERC721Psi.sol";
 import "erc721psi/contracts/extension/ERC721PsiBurnable.sol";
@@ -115,8 +116,8 @@ contract DogGoneBad is ERC721Psi, ERC721PsiBurnable, ERC721PsiBatchMetaData, Own
         require(publicSaleEnabled, "Public minting has not started yet");
         require(getTimeAfterSaleOpen() > _mintStartAfterDays * 24 * 60 * 60);
         require(_lastCallBlockNumber[msg.sender].add(_antibotInterval) < block.number, "Too many minting requesets");
-        require(quantity > 0 && quantity < (_mintLimitPerBlock + 1), "Too many requests or zero request");
         require(msg.value == _mintPrice.mul(quantity), "Need to pay more. Check payment");
+        require(quantity > 0 && quantity < (_mintLimitPerBlock + 1), "Too many requests or zero request");
         require(_mintIndex.add(quantity) < _maxMintAmount + 1, "Exceeded max amount");
         require(balanceOf(msg.sender) + quantity < (_mintLimitPerSale + 1), "Exceeded max amount per person");
 
@@ -174,5 +175,45 @@ contract DogGoneBad is ERC721Psi, ERC721PsiBurnable, ERC721PsiBatchMetaData, Own
         publicFund = 0;
         (bool success, ) = payable(publicFundHandler).call{value: toSend}("");
         require(success, "fund withdrawal by public handler failed");
+    }
+
+    // Whitelist Mint
+    uint256 public currentWhitelist;
+    bytes32 public merkleRoot;
+    bool public whitelistMintEnabled = false;
+    mapping(uint256 => mapping(address => bool)) public whitelistClaimed;
+
+    function setMerkleRoot(bytes32 _merkleRoot) public onlyOwner {
+      merkleRoot = _merkleRoot;
+    }
+
+    function setWhitelistMintEnabled(bool _state) public OnlyOwner {
+      whitelistMintEnabled = _state;
+    }
+
+    function setCurrentWhitelist(uint256 num) public onlyOwner {
+        currentWhitelist = num;
+    }
+
+    function isValid(bytes32[] memory proof, bytes32 leaf) public view returns (bool) {
+        return MerkleProof.verify(proof, merkleRoot, leaf);
+    }
+
+    function whitelistMint(uint256 quantity, bytes32[] calldata _merkleProof) external payable {
+      require(whitelistMintEnabled, "The whitelist sale is not enabled");
+      require(msg.value == _mintPrice.mul(wuantity), "Need to pay more. Check payment");
+      require(!whitelistClaimed[currentWhitelist][msg.sender], "Address already minted");
+      require(requestedCount > 0 && quantity < (_mintLimitPerBlock + 1), "Too many requests or zero request");
+      bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
+      require(isValid(_merkleProof, leaf), "Is not a whitelisted member");
+
+      _safeMint(msg.sender, quantity);
+      whitelistClaimed[currentWhitelist][msg.sender] = true;
+    }
+
+    // Airdrop Mint
+    function airDropMint(address user, uint256 quantity) external onlyOwner {
+      require(quantity > 0, "zero request");
+      _safeMint(user, quantity);
     }
 }
