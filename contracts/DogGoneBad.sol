@@ -46,7 +46,7 @@ contract DogGoneBad is ERC721Psi, ERC721PsiBurnable, ERC721PsiBatchMetaData, Own
     uint256 private _hideFrom;
     uint256 private _hideTo;
 
-    constructor() ERC721A("TestDoggy", "TDOGG") {}
+    constructor() ERC721Psi("TestDoggy", "TDOGG") {}
 
     modifier onlyPublicHandler() {
         require(msg.sender == publicFundHandler);
