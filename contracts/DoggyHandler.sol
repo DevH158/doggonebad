@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./DogGoneBad.sol";
 
-contract DogHandler is Ownable {
+contract DoggyHandler is Ownable {
     DogGoneBad public nft;
 
     uint256 private sealedSeed;
@@ -28,40 +28,13 @@ contract DogHandler is Ownable {
         sealedSeed = _sealedSeed;
     }
 
-    function getRandom(uint256 userInput) public view returns (uint256) {
-        // generates number between 0 ~ 99
-        uint256 num = uint256(
-            keccak256(
-                abi.encodePacked(
-                    sealedSeed,
-                    userInput,
-                    block.timestamp,
-                    msg.sender,
-                    blockhash(block.number - 1)
-                )
-            )
-        );
-        return num % 100;
-    }
-
     function setNFT(address _nft) public onlyOwner {
         nft = DogGoneBad(_nft);
     }
 
-    function setMetaData(uint256 tokenId) public onlyOwner {
+    // function setMetaData(uint256 tokenId) public onlyOwner {
 
-    }
-
-    function approveContract() public {
-        // check if it works
-        // possible that it doesn't work because it is a contract call
-        (bool success, bytes memory data) = address(nft).call(
-            abi.encodeWithSignature("setApprovalForAll(address,bool)", address(this), true)
-        );
-        if (!success) {
-            revert();
-        }
-    }
+    // }
 
     function isApproved(address creator) public view returns (bool) {
         // NFT owner has to approve this contract first

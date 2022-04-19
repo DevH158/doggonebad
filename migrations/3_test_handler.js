@@ -1,5 +1,5 @@
-const DogHandler = artifacts.require("DogHandler");
+const DoggyHandler = artifacts.require("DoggyHandler");
 
 module.exports = function (deployer) {
-    deployer.deploy(DogHandler);
+    deployer.deploy(DoggyHandler, [1]);
 };

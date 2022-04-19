@@ -3,15 +3,14 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import '@openzeppelin/contracts/utils/Strings.sol';
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
-import "./ERC721A.sol";
-import "./ERC721ABurnable.sol";
-import "./ERC721AOwnersExplicit.sol";
-import "./ERC721APausable.sol";
-import "./ERC721AQueryable.sol";
+import "erc721psi/contracts/ERC721Psi.sol";
+import "erc721psi/contracts/extension/ERC721PsiBurnable.sol";
+import "erc721psi/contracts/extension/ERC721PsiBatchMetaData.sol";
 
-contract DogGoneBad is ERC721A, ERC721ABurnable, ERC721AOwnersExplicit, ERC721AQueryable, Ownable {
+contract DogGoneBad is ERC721Psi, ERC721PsiBurnable, ERC721PsiBatchMetaData, Ownable {
     using SafeMath for uint256;
 
     string __baseURI;
@@ -51,6 +50,10 @@ contract DogGoneBad is ERC721A, ERC721ABurnable, ERC721AOwnersExplicit, ERC721AQ
     modifier onlyPublicHandler() {
         require(msg.sender == publicFundHandler);
         _;
+    }
+
+    function _startTokenId() internal view virtual override returns (uint256) {
+        return 1;
     }
 
     function setPublicFundHandler(address _contract) public onlyOwner {
@@ -110,12 +113,12 @@ contract DogGoneBad is ERC721A, ERC721ABurnable, ERC721AOwnersExplicit, ERC721AQ
 
     function publicMint(uint256 quantity) external payable {
         require(publicSaleEnabled, "Public minting has not started yet");
+        require(getTimeAfterSaleOpen() > _mintStartAfterDays * 24 * 60 * 60);
         require(_lastCallBlockNumber[msg.sender].add(_antibotInterval) < block.number, "Too many minting requesets");
-        require(getTimeAfterSaleOpen() >= _mintStartAfterDays * 24 * 60 * 60);
-        require(quantity > 0 && quantity <= _mintLimitPerBlock, "Too many requests or zero request");
+        require(quantity > 0 && quantity < (_mintLimitPerBlock + 1), "Too many requests or zero request");
         require(msg.value == _mintPrice.mul(quantity), "Need to pay more. Check payment");
-        require(_mintIndex.add(requestedCount) <= _maxMintAmount + 1, "Exceeded max amount");
-        require(balanceOf(msg.sender) + requestedCount <= _mintLimitPerSale, "Exceeded max amount per person");
+        require(_mintIndex.add(quantity) < _maxMintAmount + 1, "Exceeded max amount");
+        require(balanceOf(msg.sender) + quantity < (_mintLimitPerSale + 1), "Exceeded max amount per person");
 
         deposits += msg.value;
         _lastCallBlockNumber[msg.sender] = block.number;
@@ -147,10 +150,10 @@ contract DogGoneBad is ERC721A, ERC721ABurnable, ERC721AOwnersExplicit, ERC721AQ
 
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
         if (!reveal && tokenId >= _hideFrom && tokenId <= _hideTo) {
-            return string(abi.encodePacked(_hiddenTokenURI, tokenId.toString()));
+            return string(abi.encodePacked(_hiddenTokenURI, Strings.toString(tokenId)));
         }
 
-        return super.tokenURI();
+        return super.tokenURI(tokenId);
     }
 
     function withdraw() external payable onlyOwner {
