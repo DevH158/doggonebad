@@ -7,14 +7,17 @@ import '@openzeppelin/contracts/utils/Strings.sol';
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
+import "./DoggyVersion.sol";
+import "./DoggyHandler.sol";
 import "erc721psi/contracts/ERC721Psi.sol";
-import "erc721psi/contracts/extension/ERC721PsiBurnable.sol";
-import "erc721psi/contracts/extension/ERC721PsiBatchMetaData.sol";
 
-contract DogGoneBad is ERC721Psi, ERC721PsiBurnable, ERC721PsiBatchMetaData, Ownable {
+contract DogGoneBad is ERC721Psi, Ownable {
     using SafeMath for uint256;
 
     string __baseURI;
+
+    DoggyVersion private versionHandler;
+    DoggyHandler private itemHandler;
 
     // all the payments earned through public minting goes here
     uint256 public deposits;
@@ -53,8 +56,9 @@ contract DogGoneBad is ERC721Psi, ERC721PsiBurnable, ERC721PsiBatchMetaData, Own
         _;
     }
 
-    function _startTokenId() internal view virtual override returns (uint256) {
-        return 1;
+    function setHandlers(address _version, address _item) public onlyOwner {
+        versionHandler = DoggyVersion(_version);
+        itemHandler = DoggyHandler(_item);
     }
 
     function setPublicFundHandler(address _contract) public onlyOwner {
@@ -116,7 +120,7 @@ contract DogGoneBad is ERC721Psi, ERC721PsiBurnable, ERC721PsiBatchMetaData, Own
         require(publicSaleEnabled, "Public minting has not started yet");
         require(getTimeAfterSaleOpen() > _mintStartAfterDays * 24 * 60 * 60);
         require(_lastCallBlockNumber[msg.sender].add(_antibotInterval) < block.number, "Too many minting requesets");
-        require(msg.value == _mintPrice.mul(quantity), "Need to pay more. Check payment");
+        require(msg.value < _mintPrice.mul(quantity), "Need to pay more. Check payment");
         require(quantity > 0 && quantity < (_mintLimitPerBlock + 1), "Too many requests or zero request");
         require(_mintIndex.add(quantity) < _maxMintAmount + 1, "Exceeded max amount");
         require(balanceOf(msg.sender) + quantity < (_mintLimitPerSale + 1), "Exceeded max amount per person");
@@ -154,7 +158,13 @@ contract DogGoneBad is ERC721Psi, ERC721PsiBurnable, ERC721PsiBatchMetaData, Own
             return string(abi.encodePacked(_hiddenTokenURI, Strings.toString(tokenId)));
         }
 
-        return super.tokenURI(tokenId);
+        bool upgraded = itemHandler.isUpgraded(tokenId);
+
+        if (upgraded) {
+            return versionHandler.upgradedTokenURI(tokenId);
+        } else {
+            return versionHandler.tokenURI(tokenId);
+        }
     }
 
     function withdraw() external payable onlyOwner {
@@ -187,7 +197,7 @@ contract DogGoneBad is ERC721Psi, ERC721PsiBurnable, ERC721PsiBatchMetaData, Own
       merkleRoot = _merkleRoot;
     }
 
-    function setWhitelistMintEnabled(bool _state) public OnlyOwner {
+    function setWhitelistMintEnabled(bool _state) public onlyOwner {
       whitelistMintEnabled = _state;
     }
 
@@ -201,9 +211,9 @@ contract DogGoneBad is ERC721Psi, ERC721PsiBurnable, ERC721PsiBatchMetaData, Own
 
     function whitelistMint(uint256 quantity, bytes32[] calldata _merkleProof) external payable {
       require(whitelistMintEnabled, "The whitelist sale is not enabled");
-      require(msg.value == _mintPrice.mul(wuantity), "Need to pay more. Check payment");
+      require(msg.value < _mintPrice.mul(quantity), "Need to pay more. Check payment");
       require(!whitelistClaimed[currentWhitelist][msg.sender], "Address already minted");
-      require(requestedCount > 0 && quantity < (_mintLimitPerBlock + 1), "Too many requests or zero request");
+      require(quantity > 0 && quantity < (_mintLimitPerBlock + 1), "Too many requests or zero request");
       bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
       require(isValid(_merkleProof, leaf), "Is not a whitelisted member");
 

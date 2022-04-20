@@ -20,13 +20,7 @@ contract DoggyHandler is Ownable {
     // a mapping of tokenId and ItemMetaData
     mapping (uint256 => ItemMetaData) private _metadata;
 
-    constructor(uint256 _sealedSeed) {
-        sealedSeed = _sealedSeed;
-    }
-
-    function setSealedSeed(uint256 _sealedSeed) public onlyOwner {
-        sealedSeed = _sealedSeed;
-    }
+    constructor() {}
 
     function setNFT(address _nft) public onlyOwner {
         nft = DogGoneBad(_nft);
@@ -35,6 +29,14 @@ contract DoggyHandler is Ownable {
     // function setMetaData(uint256 tokenId) public onlyOwner {
 
     // }
+
+    function isUpgraded(uint256 tokenId) external view returns (bool) {
+        if (_metadata[tokenId].currUpgradeCnt > 0) {
+            return true;
+        } else {
+            return false;
+        }
+    }
 
     function isApproved(address creator) public view returns (bool) {
         // NFT owner has to approve this contract first

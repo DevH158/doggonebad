@@ -11,7 +11,8 @@ contract DoggyVersion is Ownable {
     uint256 private currentVersion;
 
     mapping (uint256 => uint256[2]) private versionInfo;
-    mapping (uint256 => uint8[]) private randomArray;
+    mapping (uint256 => uint8[]) private randomArray; // initial random values
+    mapping (uint256 => uint256[]) private upgradedArray; // random values after upgrade
 
     mapping (uint256 => string) private baseUriByVersion;
 
@@ -59,6 +60,10 @@ contract DoggyVersion is Ownable {
         randomArray[version] = arr;
     }
 
+    function setUpgradedArray(uint256 version, uint256[] calldata arr) public onlyOwner {
+        upgradedArray[version] = arr;
+    }
+
     function getSelection(uint256 tokenId) public view onlyHandler returns (uint8) {
         uint256 version = getTokenVersion(tokenId);
         uint256[2] memory fromTo = getVersionInfo(version); 
@@ -67,13 +72,28 @@ contract DoggyVersion is Ownable {
         return randomArray[version][arrayLength - arrayPosition];
     }
 
+    function getUpgradedSelection(uint256 tokenId) public view onlyHandler returns (uint256) {
+        uint256 version = getTokenVersion(tokenId);
+        uint256[2] memory fromTo = getVersionInfo(version); 
+        uint256 arrayLength = (fromTo[1] - fromTo[0]);
+        uint256 arrayPosition = (fromTo[1] - tokenId);
+        return upgradedArray[version][arrayLength - arrayPosition];
+    }
+
     function baseURI(uint256 version) public view onlyHandler returns (string memory) {
         return baseUriByVersion[version];
     }
 
-    function tokenURI(uint256 tokenId) public view onlyHandler returns (string memory) {
+    function tokenURI(uint256 tokenId) external view onlyHandler returns (string memory) {
         uint256 version = getTokenVersion(tokenId);
         uint256 selection = getSelection(tokenId);
+        string memory base = baseURI(version);
+        return string(abi.encodePacked(base, Strings.toString(selection), ".json"));
+    }
+
+    function upgradedTokenURI(uint256 tokenId) public view onlyHandler returns (string memory) {
+        uint256 version = getTokenVersion(tokenId);
+        uint256 selection = getUpgradedSelection(tokenId);
         string memory base = baseURI(version);
         return string(abi.encodePacked(base, Strings.toString(selection), ".json"));
     }

@@ -94,7 +94,7 @@ module.exports = {
         return new HDWalletProvider(privateKey, "https://api.baobab.klaytn.net:8651");
       },
       network_id: "1001", //Klaytn baobab testnet's network id
-      gas: "50000000",
+      gas: "9000000",
       gasPrice: '750000000000',
     },
     cypress: {
