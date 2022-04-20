@@ -23,7 +23,4 @@ console.log(tree.verify(proof, leaf, root)); // true
 
 
 // proof to send to contract for verification
-let p = [
-    "0x990bde5561e9bc5767f70238a0c9a12b93cccab0efdbcc441500f2014d183624",
-    "0xd28cff7104fb285ed0d7ae9af5b49946fde6430bdc3f9997827f399d69f2aaf6"
-]
+let p = ["0x990bde5561e9bc5767f70238a0c9a12b93cccab0efdbcc441500f2014d183624", "0xd28cff7104fb285ed0d7ae9af5b49946fde6430bdc3f9997827f399d69f2aaf6"]
