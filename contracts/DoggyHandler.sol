@@ -9,12 +9,8 @@ import "./DogGoneBad.sol";
 contract DoggyHandler is Ownable {
     DogGoneBad public nft;
 
-    uint256 private sealedSeed;
-
     struct ItemMetaData {
-        bool burnable; // burn original after update/change
-        uint64 maxUpgradeCnt;
-        uint64 currUpgradeCnt;
+        bool upgraded;
     }
 
     // a mapping of tokenId and ItemMetaData
@@ -26,16 +22,12 @@ contract DoggyHandler is Ownable {
         nft = DogGoneBad(_nft);
     }
 
-    // function setMetaData(uint256 tokenId) public onlyOwner {
-
-    // }
+    function setMetaData(uint256 tokenId, bool upgraded) public onlyOwner {
+        _metadata[tokenId].upgraded = upgraded;
+    }
 
     function isUpgraded(uint256 tokenId) external view returns (bool) {
-        if (_metadata[tokenId].currUpgradeCnt > 0) {
-            return true;
-        } else {
-            return false;
-        }
+        return _metadata[tokenId].upgraded;
     }
 
     function isApproved(address creator) public view returns (bool) {
