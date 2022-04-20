@@ -120,7 +120,7 @@ contract DogGoneBad is ERC721Psi, Ownable {
         require(publicSaleEnabled, "Public minting has not started yet");
         require(getTimeAfterSaleOpen() > _mintStartAfterDays * 24 * 60 * 60);
         require(_lastCallBlockNumber[msg.sender].add(_antibotInterval) < block.number, "Too many minting requesets");
-        require(msg.value < _mintPrice.mul(quantity), "Need to pay more. Check payment");
+        require(msg.value >= _mintPrice.mul(quantity), "Need to pay more. Check payment");
         require(quantity > 0 && quantity < (_mintLimitPerBlock + 1), "Too many requests or zero request");
         require(_mintIndex.add(quantity) < _maxMintAmount + 1, "Exceeded max amount");
         require(balanceOf(msg.sender) + quantity < (_mintLimitPerSale + 1), "Exceeded max amount per person");
@@ -211,7 +211,7 @@ contract DogGoneBad is ERC721Psi, Ownable {
 
     function whitelistMint(uint256 quantity, bytes32[] calldata _merkleProof) external payable {
       require(whitelistMintEnabled, "The whitelist sale is not enabled");
-      require(msg.value < _mintPrice.mul(quantity), "Need to pay more. Check payment");
+      require(msg.value >= _mintPrice.mul(quantity), "Need to pay more. Check payment");
       require(!whitelistClaimed[currentWhitelist][msg.sender], "Address already minted");
       require(quantity > 0 && quantity < (_mintLimitPerBlock + 1), "Too many requests or zero request");
       bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
