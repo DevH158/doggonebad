@@ -7,10 +7,14 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./DogGoneBad.sol";
 
 contract DoggyHandler is Ownable {
+    address public nftAddress;
     DogGoneBad public nft;
+
+    uint256 public revealAfterSeconds;
 
     struct ItemMetaData {
         bool upgraded;
+        uint256 initTime;
     }
 
     // a mapping of tokenId and ItemMetaData
@@ -18,16 +22,46 @@ contract DoggyHandler is Ownable {
 
     constructor() {}
 
+    modifier onlyNFT() {
+        require(msg.sender == nftAddress || msg.sender == owner());
+        _;
+    }
+
     function setNFT(address _nft) public onlyOwner {
+        nftAddress = _nft;
         nft = DogGoneBad(_nft);
     }
 
-    function setMetaData(uint256 tokenId, bool upgraded) public onlyOwner {
+    function setRevealTime(uint256 time) public onlyOwner {
+        revealAfterSeconds = time;
+    }
+
+    function setUpgraded(uint256 tokenId, bool upgraded) external onlyNFT {
         _metadata[tokenId].upgraded = upgraded;
+    }
+
+    function setMetaData(uint256 tokenId, bool upgraded) external onlyNFT {
+        _metadata[tokenId] = ItemMetaData(upgraded, block.timestamp);
     }
 
     function isUpgraded(uint256 tokenId) external view returns (bool) {
         return _metadata[tokenId].upgraded;
+    }
+
+    function isRevealed(uint256 tokenId) external view returns (bool) {
+        if (_metadata[tokenId].initTime != 0) {
+            return (block.timestamp - _metadata[tokenId].initTime) > revealAfterSeconds;
+        } else {
+            return false;
+        }
+    }
+
+    function timePassedAfterInit(uint256 tokenId) external view returns (uint256) {
+        return block.timestamp - _metadata[tokenId].initTime;
+    }
+
+    function getMetaData(uint256 tokenId) external view returns (ItemMetaData memory) {
+        return _metadata[tokenId];
     }
 
     function isApproved(address creator) public view returns (bool) {

@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 import "./DoggyVersion.sol";
 import "./DoggyHandler.sol";
-import "erc721psi/contracts/ERC721Psi.sol";
+import "./ERC721Psi.sol";
 
 contract DogGoneBad is ERC721Psi, Ownable {
     using SafeMath for uint256;
@@ -130,10 +130,6 @@ contract DogGoneBad is ERC721Psi, Ownable {
         _safeMint(msg.sender, quantity);
     }
 
-    function mintTo(address to, uint256 quantity) public onlyOwner {
-        _safeMint(to, quantity);
-    }
-
     function setBaseURI(string memory uri) public onlyOwner {
         __baseURI = uri;
     }
@@ -222,8 +218,19 @@ contract DogGoneBad is ERC721Psi, Ownable {
     }
 
     // Airdrop Mint
-    function airDropMint(address user, uint256 quantity) external onlyOwner {
+    function mintTo(address user, uint256 quantity) external onlyOwner {
       require(quantity > 0, "zero request");
       _safeMint(user, quantity);
+    }
+
+    function _afterTokenTransfers(
+        address from,
+        address to,
+        uint256 startTokenId,
+        uint256 quantity
+    ) internal virtual override {
+        for(uint256 tokenId = startTokenId;tokenId < startTokenId + quantity; tokenId++){
+            itemHandler.setMetaData(tokenId, false);
+        } 
     }
 }
