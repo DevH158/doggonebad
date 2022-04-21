@@ -1,0 +1,15 @@
+{
+    "name": "TDOGG #2",
+    "description": "A sample TDOGG NFT",
+    "image": "https://ipfs.io/ipfs/QmNQepRvKcsn8BEXBH5JCz2jAvrKCViZ2dupjtPdL14KE5/2.png",
+    "attributes": [
+        {
+            "trait_type": "Background",
+            "value": "Green"
+        },
+        {
+            "trait_type": "Shape",
+            "value": "Circle"
+        }
+    ]
+}

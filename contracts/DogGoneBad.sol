@@ -8,16 +8,12 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 import "./DoggyVersion.sol";
-import "./DoggyHandler.sol";
 import "./ERC721Psi.sol";
 
 contract DogGoneBad is ERC721Psi, Ownable {
     using SafeMath for uint256;
 
-    string __baseURI;
-
     DoggyVersion private versionHandler;
-    DoggyHandler private itemHandler;
 
     // all the payments earned through public minting goes here
     uint256 public deposits;
@@ -41,13 +37,17 @@ contract DogGoneBad is ERC721Psi, Ownable {
     uint256 private _mintStartTimestamp;
     uint256 private _mintPrice = 1 * 10 ** 18;  // start from 1 KLAY
 
-    // Reveal information
-    // assumes there are multiple public sales each of which hides tokenURI
-    // for a set period of time
-    bool public reveal = false;
+    // reveal
+    uint256 public revealAfterSeconds;
     string private _hiddenTokenURI;
-    uint256 private _hideFrom;
-    uint256 private _hideTo;
+
+    struct ItemMetaData {
+        bool upgraded;
+        uint256 initTime;
+    }
+
+    // a mapping of tokenId and ItemMetaData
+    mapping (uint256 => ItemMetaData) private _metadata;
 
     constructor() ERC721Psi("TestDoggy", "TDOGG") {}
 
@@ -56,9 +56,8 @@ contract DogGoneBad is ERC721Psi, Ownable {
         _;
     }
 
-    function setHandlers(address _version, address _item) public onlyOwner {
+    function setHandler(address _version) public onlyOwner {
         versionHandler = DoggyVersion(_version);
-        itemHandler = DoggyHandler(_item);
     }
 
     function setPublicFundHandler(address _contract) public onlyOwner {
@@ -130,31 +129,47 @@ contract DogGoneBad is ERC721Psi, Ownable {
         _safeMint(msg.sender, quantity);
     }
 
-    function setBaseURI(string memory uri) public onlyOwner {
-        __baseURI = uri;
-    }
-
-    function _baseURI() internal view override returns (string memory) {
-        return __baseURI;
-    }
-
-    function hideTokens(uint256 from, uint256 to, string memory uri) public onlyOwner {
-        reveal = false;
-        _hideFrom = from;
-        _hideTo = to;
+    function setHiddenTokenURI(string memory uri) public onlyOwner {
         _hiddenTokenURI = uri;
     }
 
-    function revealTokens() public onlyOwner {
-        reveal = true;
+    // selectively hide and reveal
+    function setRevealTime(uint256 time) public onlyOwner {
+        revealAfterSeconds = time;
+    }
+
+    function setMetaData(uint256 tokenId, bool upgraded) internal {
+        _metadata[tokenId] = ItemMetaData(upgraded, block.timestamp);
+    }
+
+    function isUpgraded(uint256 tokenId) public view returns (bool) {
+        return _metadata[tokenId].upgraded;
+    }
+
+    function isRevealed(uint256 tokenId) public view returns (bool) {
+        if (_metadata[tokenId].initTime != 0) {
+            return (block.timestamp - _metadata[tokenId].initTime) > revealAfterSeconds;
+        } else {
+            return false;
+        }
+    }
+
+    function timePassedAfterInit(uint256 tokenId) public view returns (uint256) {
+        return block.timestamp - _metadata[tokenId].initTime;
+    }
+
+    function getMetaData(uint256 tokenId) public view returns (ItemMetaData memory) {
+        return _metadata[tokenId];
     }
 
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
-        if (!reveal && tokenId >= _hideFrom && tokenId <= _hideTo) {
-            return string(abi.encodePacked(_hiddenTokenURI, Strings.toString(tokenId)));
+        bool revealed = isRevealed(tokenId);
+
+        if (!revealed) {
+            return _hiddenTokenURI;
         }
 
-        bool upgraded = itemHandler.isUpgraded(tokenId);
+        bool upgraded = isUpgraded(tokenId);
 
         if (upgraded) {
             return versionHandler.upgradedTokenURI(tokenId);
@@ -229,8 +244,8 @@ contract DogGoneBad is ERC721Psi, Ownable {
         uint256 startTokenId,
         uint256 quantity
     ) internal virtual override {
-        for(uint256 tokenId = startTokenId;tokenId < startTokenId + quantity; tokenId++){
-            itemHandler.setMetaData(tokenId, false);
+        for (uint256 tokenId = startTokenId; tokenId < startTokenId + quantity; tokenId++) {
+            setMetaData(tokenId, false);
         } 
     }
 }
