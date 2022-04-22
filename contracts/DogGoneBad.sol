@@ -37,13 +37,12 @@ contract DogGoneBad is ERC721Psi, Ownable {
     uint256 private _mintStartTimestamp;
     uint256 private _mintPrice = 1 * 10 ** 18;  // start from 1 KLAY
 
-    // reveal
-    uint256 public revealAfterSeconds;
+    // uint256 public revealAfterSeconds;
     string private _hiddenTokenURI;
 
     struct ItemMetaData {
+        bool publicMinted; // is held by owner other than creator
         bool upgraded;
-        uint256 initTime;
     }
 
     // a mapping of tokenId and ItemMetaData
@@ -129,33 +128,36 @@ contract DogGoneBad is ERC721Psi, Ownable {
         _safeMint(msg.sender, quantity);
     }
 
+    // function setRevealTime(uint256 time) public onlyOwner {
+    //     revealAfterSeconds = time;
+    // }
+
+    // function isRevealed(uint256 tokenId) public view returns (bool) {
+    //     if (_metadata[tokenId].initTime != 0) {
+    //         return (block.timestamp - _metadata[tokenId].initTime) > revealAfterSeconds;
+    //     } else {
+    //         return false;
+    //     }
+    // }
+
+    // function timePassedAfterInit(uint256 tokenId) public view returns (uint256) {
+    //     return block.timestamp - _metadata[tokenId].initTime;
+    // }
+
     function setHiddenTokenURI(string memory uri) public onlyOwner {
         _hiddenTokenURI = uri;
     }
 
-    // selectively hide and reveal
-    function setRevealTime(uint256 time) public onlyOwner {
-        revealAfterSeconds = time;
+    function setMetaData(uint256 tokenId, bool publicMinted, bool upgraded) internal {
+        _metadata[tokenId] = ItemMetaData(publicMinted, upgraded);
     }
 
-    function setMetaData(uint256 tokenId, bool upgraded) internal {
-        _metadata[tokenId] = ItemMetaData(upgraded, block.timestamp);
+    function isPublicMinted(uint256 tokenId) public view returns (bool) {
+        return _metadata[tokenId].publicMinted;
     }
 
     function isUpgraded(uint256 tokenId) public view returns (bool) {
         return _metadata[tokenId].upgraded;
-    }
-
-    function isRevealed(uint256 tokenId) public view returns (bool) {
-        if (_metadata[tokenId].initTime != 0) {
-            return (block.timestamp - _metadata[tokenId].initTime) > revealAfterSeconds;
-        } else {
-            return false;
-        }
-    }
-
-    function timePassedAfterInit(uint256 tokenId) public view returns (uint256) {
-        return block.timestamp - _metadata[tokenId].initTime;
     }
 
     function getMetaData(uint256 tokenId) public view returns (ItemMetaData memory) {
@@ -163,18 +165,18 @@ contract DogGoneBad is ERC721Psi, Ownable {
     }
 
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
-        bool revealed = isRevealed(tokenId);
+        bool publicMinted = isPublicMinted(tokenId);
 
-        if (!revealed) {
+        if (!publicMinted) {
             return _hiddenTokenURI;
-        }
-
-        bool upgraded = isUpgraded(tokenId);
-
-        if (upgraded) {
-            return versionHandler.upgradedTokenURI(tokenId);
         } else {
-            return versionHandler.tokenURI(tokenId);
+            bool upgraded = isUpgraded(tokenId);
+
+            if (upgraded) {
+                return versionHandler.upgradedTokenURI(tokenId);
+            } else {
+                return versionHandler.tokenURI(tokenId);
+            }
         }
     }
 
@@ -244,8 +246,16 @@ contract DogGoneBad is ERC721Psi, Ownable {
         uint256 startTokenId,
         uint256 quantity
     ) internal virtual override {
-        for (uint256 tokenId = startTokenId; tokenId < startTokenId + quantity; tokenId++) {
-            setMetaData(tokenId, false);
-        } 
+        if (from == address(0)) {
+            // bulk mint
+            for (uint256 tokenId = startTokenId; tokenId < startTokenId + quantity; tokenId++) {
+                setMetaData(tokenId, false, false);
+            } 
+        } else {
+            // public/opensea sale
+            if (from == owner()) {
+                setMetaData(startTokenId, true, false);
+            }
+        }
     }
 }
