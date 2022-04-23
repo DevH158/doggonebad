@@ -10,8 +10,9 @@ import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "./DoggyVersion.sol";
 import "./DoggyHandler.sol";
 import "./ERC721Psi.sol";
+import "./ERC721PsiBurnable.sol";
 
-contract DogGoneBad is ERC721Psi, Ownable {
+contract DogGoneBad is ERC721, ERC721Burnable, Ownable {
     using SafeMath for uint256;
 
     DoggyVersion private versionHandler;
@@ -39,7 +40,6 @@ contract DogGoneBad is ERC721Psi, Ownable {
     uint256 private _mintStartTimestamp;
     uint256 private _mintPrice = 1 * 10 ** 18;  // start from 1 KLAY
 
-    // uint256 public revealAfterSeconds;
     string private _hiddenTokenURI;
 
     struct ItemMetaData {
@@ -50,7 +50,7 @@ contract DogGoneBad is ERC721Psi, Ownable {
     // a mapping of tokenId and ItemMetaData
     mapping (uint256 => ItemMetaData) private _metadata;
 
-    constructor() ERC721Psi("DogGoneBad", "DGB") {}
+    constructor() ERC721("DogGoneBad", "DGB") {}
 
     modifier onlyPublicHandler() {
         require(msg.sender == publicFundHandler);
@@ -135,22 +135,6 @@ contract DogGoneBad is ERC721Psi, Ownable {
         _lastCallBlockNumber[msg.sender] = block.number;
         _safeMint(msg.sender, quantity);
     }
-
-    // function setRevealTime(uint256 time) public onlyOwner {
-    //     revealAfterSeconds = time;
-    // }
-
-    // function isRevealed(uint256 tokenId) public view returns (bool) {
-    //     if (_metadata[tokenId].initTime != 0) {
-    //         return (block.timestamp - _metadata[tokenId].initTime) > revealAfterSeconds;
-    //     } else {
-    //         return false;
-    //     }
-    // }
-
-    // function timePassedAfterInit(uint256 tokenId) public view returns (uint256) {
-    //     return block.timestamp - _metadata[tokenId].initTime;
-    // }
 
     function setHiddenTokenURI(string memory uri) public onlyOwner {
         _hiddenTokenURI = uri;
@@ -271,5 +255,9 @@ contract DogGoneBad is ERC721Psi, Ownable {
                 setMetaData(startTokenId, true, false);
             }
         }
+    }
+
+    function burn(uint256 tokenId) external onlyItemHandler {
+        _burn(tokenId);
     }
 }

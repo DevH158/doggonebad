@@ -1,8 +1,12 @@
 const HDWalletProvider = require("truffle-hdwallet-provider-klaytn");
+const Caver = require('caver-js');
 
 require('dotenv').config();
 
 const privateKey = process.env.PRIVATE_KEY1;
+const cypressPrivateKey = process.env.PRIVATE_KEY3;
+const accessKeyId = process.env.KAS_ACCESS_ID;
+const secretAccessKey = process.env.KAS_SECRET_KEY;
 
 module.exports = {
   compilers: {
@@ -86,8 +90,8 @@ module.exports = {
         );
       },
       network_id: "8217", //Klaytn baobab testnet's network id
-      gas: "8500000",
-      gasPrice: "25000000000",
+      gas: "9000000",
+      gasPrice: "750000000000",
     },
     baobab: {
       provider: () => {
@@ -102,7 +106,7 @@ module.exports = {
         return new HDWalletProvider(privateKey, "https://public-node-api.klaytnapi.com/v1/cypress");
       },
       network_id: "8217", //Klaytn mainnet's network id
-      gas: "5000000",
+      gas: "9000000",
       gasPrice: '750000000000',
     },
   },
