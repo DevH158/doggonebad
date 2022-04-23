@@ -50,7 +50,7 @@ contract DogGoneBad is ERC721Psi, Ownable {
     // a mapping of tokenId and ItemMetaData
     mapping (uint256 => ItemMetaData) private _metadata;
 
-    constructor() ERC721Psi("TestDoggyLand", "TDOGG") {}
+    constructor() ERC721Psi("DogGoneBad", "DGB") {}
 
     modifier onlyPublicHandler() {
         require(msg.sender == publicFundHandler);
