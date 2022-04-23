@@ -8,12 +8,14 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 import "./DoggyVersion.sol";
+import "./DoggyHandler.sol";
 import "./ERC721Psi.sol";
 
 contract DogGoneBad is ERC721Psi, Ownable {
     using SafeMath for uint256;
 
     DoggyVersion private versionHandler;
+    address private itemHandler; // DoggyHandler
 
     // all the payments earned through public minting goes here
     uint256 public deposits;
@@ -55,13 +57,19 @@ contract DogGoneBad is ERC721Psi, Ownable {
         _;
     }
 
-    function setHandler(address _version) public onlyOwner {
-        versionHandler = DoggyVersion(_version);
+    modifier onlyItemHandler() {
+        require(msg.sender == itemHandler || msg.sender == owner());
+        _;
     }
 
     function setPublicFundHandler(address _contract) public onlyOwner {
         // public fund handler can manage all the public fund in this contract (balance)
         publicFundHandler = _contract;
+    }
+
+    function setHandler(address _version, address _item) public onlyOwner {
+        versionHandler = DoggyVersion(_version);
+        itemHandler = _item;
     }
 
     function setMintPrice(uint256 price) public onlyOwner {
@@ -152,6 +160,10 @@ contract DogGoneBad is ERC721Psi, Ownable {
         _metadata[tokenId] = ItemMetaData(publicMinted, upgraded);
     }
 
+    function setUpgraded(uint256 tokenId, bool upgraded) external onlyItemHandler {
+        _metadata[tokenId].upgraded = upgraded;
+    }
+
     function isPublicMinted(uint256 tokenId) public view returns (bool) {
         return _metadata[tokenId].publicMinted;
     }
@@ -165,6 +177,8 @@ contract DogGoneBad is ERC721Psi, Ownable {
     }
 
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+        require(_exists(tokenId), "ERC721Psi: URI query for nonexistent token");
+
         bool publicMinted = isPublicMinted(tokenId);
 
         if (!publicMinted) {
