@@ -23,7 +23,8 @@ contract DoggyHandler is Ownable {
     }
 
     function setUpgraded(uint256 tokenId, bool upgraded) public onlyOwner {
-        nft.setUpgraded(tokenId, upgraded);
+        (bool success, ) = nftAddress.call(abi.encodeWithSignature("setUpgraded(uint256,bool)", tokenId, upgraded));
+        require(success, "setUpgraded failed");
     }
 
     function isApproved(address creator) public view returns (bool) {
