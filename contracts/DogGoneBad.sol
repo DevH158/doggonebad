@@ -7,12 +7,14 @@ import '@openzeppelin/contracts/utils/Strings.sol';
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
+import "erc721psi/contracts/BitMaps.sol";
+
 import "./DoggyVersion.sol";
 import "./DoggyHandler.sol";
 import "./ERC721Psi.sol";
-import "./ERC721PsiBurnable.sol";
+import "./ERC2981.sol";
 
-contract DogGoneBad is ERC721, ERC721Burnable, Ownable {
+contract DogGoneBad is ERC721, ERC2981, Ownable {
     using SafeMath for uint256;
 
     DoggyVersion private versionHandler;
@@ -24,33 +26,25 @@ contract DogGoneBad is ERC721, ERC721Burnable, Ownable {
 
     // contract that can withdraw and use public funds
     address public publicFundHandler;
-    uint8 public creatorFee = 10; // in percentage. Only creator fee goes to owner
+    uint256 public creatorFee = 1000; // 1000 is 10%
+    uint256 public royaltyFee = 250; // 250 is 2.5%;
 
     // Minting information
-    uint256 public publicSaleCount; // total number of public sale events
-    bool public publicSaleEnabled = false;
-
-    mapping (address => uint256) private _lastCallBlockNumber;
-    uint256 private _mintIndex;
-    uint256 private _maxMintAmount;
-    uint256 private _antibotInterval;
-    uint256 private _mintLimitPerBlock;
-    uint256 private _mintLimitPerSale;
-    uint256 private _mintStartAfterDays;
-    uint256 private _mintStartTimestamp;
-    uint256 private _mintPrice = 1 * 10 ** 18;  // start from 1 KLAY
+    uint256 public mintPrice = 1 * 10 ** 18;  // start from 1 KLAY
 
     string private _hiddenTokenURI;
 
     struct ItemMetaData {
         bool publicMinted; // is held by owner other than creator
         bool upgraded;
+        bool burned;
     }
 
     // a mapping of tokenId and ItemMetaData
     mapping (uint256 => ItemMetaData) private _metadata;
+    uint256 private _burned;
 
-    constructor() ERC721("DogGoneBad", "DGB") {}
+    constructor() ERC721("TestDoggies", "DGB") {}
 
     modifier onlyPublicHandler() {
         require(msg.sender == publicFundHandler);
@@ -73,104 +67,42 @@ contract DogGoneBad is ERC721, ERC721Burnable, Ownable {
     }
 
     function setMintPrice(uint256 price) public onlyOwner {
-        _mintPrice = price;
+        mintPrice = price;
     }
 
-    function getMintPrice() public view returns (uint256) {
-        return _mintPrice;
-    }
-
-    function setPublicSale(
-        uint256 maxMintAmount,
-        uint256 antibotInterval,
-        uint256 mintLimitPerBlock,
-        uint256 mintLimitPerSale,
-        uint256 mintStartAfterDays
-    ) public onlyOwner {
-        _mintIndex = 0;
-        _maxMintAmount = maxMintAmount;
-        _antibotInterval = antibotInterval;
-        _mintLimitPerBlock = mintLimitPerBlock;
-        _mintLimitPerSale = mintLimitPerSale;
-        _mintStartAfterDays = mintStartAfterDays;
-    }
-
-    function getPublicSale() public view returns (uint256[7] memory) {
-        return [
-            _maxMintAmount,
-            _antibotInterval,
-            _mintLimitPerBlock,
-            _mintLimitPerSale,
-            _mintStartAfterDays,
-            _mintStartTimestamp,
-            _mintPrice
-        ];
-    }
-
-    function openPublicSale() public onlyOwner {
-        publicSaleEnabled = true;
-        publicSaleCount++;
-        _mintStartTimestamp = block.timestamp;
-    }
-
-    function closePublicSale() public onlyOwner {
-        publicSaleEnabled = false;
-    }
-
-    function getTimeAfterSaleOpen() public view returns (uint256) {
-        require(publicSaleEnabled, "Public minting has not started yet");
-        return block.timestamp - _mintStartTimestamp;
-    }
-
-    function publicMint(uint256 quantity) external payable {
-        require(publicSaleEnabled, "Public minting has not started yet");
-        require(getTimeAfterSaleOpen() > _mintStartAfterDays * 24 * 60 * 60);
-        require(_lastCallBlockNumber[msg.sender].add(_antibotInterval) < block.number, "Too many minting requesets");
-        require(msg.value >= _mintPrice.mul(quantity), "Need to pay more. Check payment");
-        require(quantity > 0 && quantity < (_mintLimitPerBlock + 1), "Too many requests or zero request");
-        require(_mintIndex.add(quantity) < _maxMintAmount + 1, "Exceeded max amount");
-        require(balanceOf(msg.sender) + quantity < (_mintLimitPerSale + 1), "Exceeded max amount per person");
-
-        deposits += msg.value;
-        _lastCallBlockNumber[msg.sender] = block.number;
-        _safeMint(msg.sender, quantity);
+    function setRoyaltyFee(uint256 fee) public onlyOwner {
+        royaltyFee = fee;
     }
 
     function setHiddenTokenURI(string memory uri) public onlyOwner {
         _hiddenTokenURI = uri;
     }
 
-    function setMetaData(uint256 tokenId, bool publicMinted, bool upgraded) internal {
-        _metadata[tokenId] = ItemMetaData(publicMinted, upgraded);
+    function setMetaData(uint256 tokenId, bool publicMinted, bool upgraded, bool burned) internal {
+        _metadata[tokenId] = ItemMetaData(publicMinted, upgraded, burned);
     }
 
     function setUpgraded(uint256 tokenId, bool upgraded) external onlyItemHandler {
         _metadata[tokenId].upgraded = upgraded;
     }
 
-    function isPublicMinted(uint256 tokenId) public view returns (bool) {
-        return _metadata[tokenId].publicMinted;
-    }
-
-    function isUpgraded(uint256 tokenId) public view returns (bool) {
-        return _metadata[tokenId].upgraded;
-    }
-
     function getMetaData(uint256 tokenId) public view returns (ItemMetaData memory) {
         return _metadata[tokenId];
+    }
+
+    function _exists(uint256 tokenId) internal view virtual override returns (bool) {
+        return (tokenId < _minted) && (!_metadata[tokenId].burned);
     }
 
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
         require(_exists(tokenId), "ERC721Psi: URI query for nonexistent token");
 
-        bool publicMinted = isPublicMinted(tokenId);
+        ItemMetaData memory metadata = _metadata[tokenId];
 
-        if (!publicMinted) {
+        if (!metadata.publicMinted) {
             return _hiddenTokenURI;
         } else {
-            bool upgraded = isUpgraded(tokenId);
-
-            if (upgraded) {
+            if (metadata.upgraded) {
                 return versionHandler.upgradedTokenURI(tokenId);
             } else {
                 return versionHandler.tokenURI(tokenId);
@@ -178,11 +110,28 @@ contract DogGoneBad is ERC721, ERC721Burnable, Ownable {
         }
     }
 
+    function totalSupply() public view virtual override returns (uint256) {
+        return _minted - _burned;
+    }
+
+    function _burn(uint256 tokenId) internal virtual {
+        _metadata[tokenId].burned = true;
+        _burned++;
+
+        address from = ownerOf(tokenId);
+        emit Transfer(from, address(0), tokenId);
+    }
+
+    function burn(uint256 tokenId) public {
+        require(_isApprovedOrOwner(msg.sender, tokenId), "Has to be approved to burn token");
+        _burn(tokenId);
+    }
+
     function withdraw() external payable onlyOwner {
         // withdraw function for the creator/owner
         uint256 toSend = deposits;
-        uint256 creatorDeposit = toSend * creatorFee / 100;
-        uint256 publicDeposit = toSend * (100 - creatorFee) / 100;
+        uint256 creatorDeposit = toSend * creatorFee / 10000;
+        uint256 publicDeposit = toSend * (10000 - creatorFee) / 10000;
         deposits = 0;
         publicFund += publicDeposit;
 
@@ -204,6 +153,8 @@ contract DogGoneBad is ERC721, ERC721Burnable, Ownable {
     bool public whitelistMintEnabled = false;
     mapping(uint256 => mapping(address => bool)) public whitelistClaimed;
 
+    uint256 private _mintLimitPerBlock;
+
     function setMerkleRoot(bytes32 _merkleRoot) public onlyOwner {
       merkleRoot = _merkleRoot;
     }
@@ -216,18 +167,23 @@ contract DogGoneBad is ERC721, ERC721Burnable, Ownable {
         currentWhitelist = num;
     }
 
+    function setWhitelistLimit(uint256 mintLimitPerBlock) public onlyOwner {
+        _mintLimitPerBlock = mintLimitPerBlock;
+    }
+
     function isValid(bytes32[] memory proof, bytes32 leaf) public view returns (bool) {
         return MerkleProof.verify(proof, merkleRoot, leaf);
     }
 
     function whitelistMint(uint256 quantity, bytes32[] calldata _merkleProof) external payable {
       require(whitelistMintEnabled, "The whitelist sale is not enabled");
-      require(msg.value >= _mintPrice.mul(quantity), "Need to pay more. Check payment");
+      require(msg.value >= mintPrice.mul(quantity), "Need to pay more. Check payment");
       require(!whitelistClaimed[currentWhitelist][msg.sender], "Address already minted");
       require(quantity > 0 && quantity < (_mintLimitPerBlock + 1), "Too many requests or zero request");
       bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
       require(isValid(_merkleProof, leaf), "Is not a whitelisted member");
 
+      deposits += msg.value;
       _safeMint(msg.sender, quantity);
       whitelistClaimed[currentWhitelist][msg.sender] = true;
     }
@@ -247,17 +203,14 @@ contract DogGoneBad is ERC721, ERC721Burnable, Ownable {
         if (from == address(0)) {
             // bulk mint
             for (uint256 tokenId = startTokenId; tokenId < startTokenId + quantity; tokenId++) {
-                setMetaData(tokenId, false, false);
+                setMetaData(tokenId, false, false, false);
+                _setRoyalty(tokenId, owner(), royaltyFee);
             } 
         } else {
             // public/opensea sale
             if (from == owner()) {
-                setMetaData(startTokenId, true, false);
+                setMetaData(startTokenId, true, false, false);
             }
         }
-    }
-
-    function burn(uint256 tokenId) external onlyItemHandler {
-        _burn(tokenId);
     }
 }
