@@ -41,10 +41,10 @@ contract DogGoneBad is ERC721, ERC2981, Ownable {
     }
 
     // a mapping of tokenId and ItemMetaData
-    mapping (uint256 => ItemMetaData) private _metadata;
+    mapping (uint256 => ItemMetaData) public metadata;
     uint256 private _burned;
 
-    constructor() ERC721("TestDoggies", "DGB") {}
+    constructor() ERC721("Dog Gone Bad", "DGB") {}
 
     modifier onlyPublicHandler() {
         require(msg.sender == publicFundHandler);
@@ -79,30 +79,26 @@ contract DogGoneBad is ERC721, ERC2981, Ownable {
     }
 
     function setMetaData(uint256 tokenId, bool publicMinted, bool upgraded, bool burned) internal {
-        _metadata[tokenId] = ItemMetaData(publicMinted, upgraded, burned);
+        metadata[tokenId] = ItemMetaData(publicMinted, upgraded, burned);
     }
 
     function setUpgraded(uint256 tokenId, bool upgraded) external onlyItemHandler {
-        _metadata[tokenId].upgraded = upgraded;
-    }
-
-    function getMetaData(uint256 tokenId) public view returns (ItemMetaData memory) {
-        return _metadata[tokenId];
+        metadata[tokenId].upgraded = upgraded;
     }
 
     function _exists(uint256 tokenId) internal view virtual override returns (bool) {
-        return (tokenId < _minted) && (!_metadata[tokenId].burned);
+        return (tokenId < _minted) && (!metadata[tokenId].burned);
     }
 
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
         require(_exists(tokenId), "ERC721Psi: URI query for nonexistent token");
 
-        ItemMetaData memory metadata = _metadata[tokenId];
+        ItemMetaData memory _metadata = metadata[tokenId];
 
-        if (!metadata.publicMinted) {
+        if (!_metadata.publicMinted) {
             return _hiddenTokenURI;
         } else {
-            if (metadata.upgraded) {
+            if (_metadata.upgraded) {
                 return versionHandler.upgradedTokenURI(tokenId);
             } else {
                 return versionHandler.tokenURI(tokenId);
@@ -114,12 +110,11 @@ contract DogGoneBad is ERC721, ERC2981, Ownable {
         return _minted - _burned;
     }
 
-    function _burn(uint256 tokenId) internal virtual {
-        _metadata[tokenId].burned = true;
-        _burned++;
+    function _burn(uint256 tokenId) internal {
+        emit Transfer(ownerOf(tokenId), address(0), tokenId);
 
-        address from = ownerOf(tokenId);
-        emit Transfer(from, address(0), tokenId);
+        metadata[tokenId].burned = true;
+        _burned++;
     }
 
     function burn(uint256 tokenId) public {
